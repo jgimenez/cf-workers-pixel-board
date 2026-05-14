@@ -210,9 +210,11 @@ async function bootstrap() {
   window.__SITE_KEY__ = data.siteKey;
   buildPalette(data.palette);
 
-  // Press + drag → paint
-  els.canvas.addEventListener("mousedown", (ev) => {
-    if (ev.button !== 0) return;
+  // Press + drag → paint (pointer events cover mouse, touch, and stylus)
+  els.canvas.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    ev.preventDefault();
+    els.canvas.setPointerCapture(ev.pointerId);
     isDrawing = true;
     lastDrawnCell = null;
     const { x, y } = canvasCoordsFromEvent(ev);
@@ -220,14 +222,18 @@ async function bootstrap() {
       paintPixel(x, y, selectedColor);
     }
   });
-  els.canvas.addEventListener("mousemove", (ev) => {
+  els.canvas.addEventListener("pointermove", (ev) => {
     if (!isDrawing) return;
     const { x, y } = canvasCoordsFromEvent(ev);
     if (x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE) {
       paintPixel(x, y, selectedColor);
     }
   });
-  window.addEventListener("mouseup", () => {
+  els.canvas.addEventListener("pointerup", () => {
+    isDrawing = false;
+    lastDrawnCell = null;
+  });
+  els.canvas.addEventListener("pointercancel", () => {
     isDrawing = false;
     lastDrawnCell = null;
   });

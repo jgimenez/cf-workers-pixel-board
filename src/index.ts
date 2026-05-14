@@ -355,6 +355,7 @@ export default {
           },
         ],
         max_tokens: 20000,
+        reasoning_effort: "low",
       } as any, drawGateway as any);
 
       // Extract text from AI response
