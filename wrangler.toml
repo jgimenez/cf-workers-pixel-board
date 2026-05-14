@@ -13,6 +13,15 @@ not_found_handling = "single-page-application"
 [ai]
 binding = "AI"
 
+# Browser Rendering
+[browser]
+binding = "BROWSER"
+
+# Observability
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Durable Objects
 [[durable_objects.bindings]]
 name = "TILE"

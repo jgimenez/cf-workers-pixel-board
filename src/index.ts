@@ -1,7 +1,9 @@
+import puppeteer from "@cloudflare/puppeteer";
 import {
   validateTurnstile,
   issueSessionCookie,
   verifySessionFromRequest,
+  createSessionValue,
 } from "./auth";
 import { PALETTE, hexToRgba, isValidColorIndex } from "./palette";
 import { BOARD_SIZE, TILE_SIZE, TILES_PER_ROW } from "./protocol";
@@ -21,6 +23,7 @@ export interface Env {
   SESSION_HMAC_SECRET: string;
   CF_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
+  BROWSER: Fetcher;
   // Optional fallback if not using WAF Rate Limiting
   // PAINT_LIMITER?: { limit: (opts: { key: string }) => Promise<{ success: boolean }> };
 }
@@ -90,13 +93,44 @@ export default {
       return env.ASSETS.fetch(new Request(new URL("/admin.html", req.url).toString()));
     }
 
+    if (url.pathname === "/draw.html") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    if (url.pathname === "/draw" && req.method === "GET") {
+      const jwt = req.headers.get("CF-Access-Jwt-Assertion") ?? "";
+      const ok = await verifyAccessJwt(jwt, env.CF_TEAM_DOMAIN, env.CF_ACCESS_AUD);
+      if (!ok) return new Response("Unauthorized", { status: 401 });
+      return env.ASSETS.fetch(new Request(new URL("/draw.html", req.url).toString()));
+    }
+
     // -------- API routes --------
     if (url.pathname === "/api/whoami" && req.method === "GET") {
       const sid = await verifySessionFromRequest(req, env.SESSION_HMAC_SECRET);
+      // Extract email from Cloudflare Access. The CF-Access-Jwt-Assertion header is only
+      // injected on paths inside the Access app scope, but CF_Authorization cookie is sent
+      // on every request to the domain by the browser after login — decode from there.
+      const decodeAccessEmail = (jwt: string): string | null => {
+        try {
+          const b64 = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/");
+          const payload = JSON.parse(atob(b64(jwt.split(".")[1] ?? "")));
+          return typeof payload.email === "string" ? payload.email : null;
+        } catch { return null; }
+      };
+      let accessEmail: string | null =
+        req.headers.get("cf-access-authenticated-user-email") ??
+        decodeAccessEmail(req.headers.get("cf-access-jwt-assertion") ?? "");
+      if (!accessEmail) {
+        // CF_Authorization cookie carries the same JWT for all paths
+        const cookieHeader = req.headers.get("cookie") ?? "";
+        const cookieMatch = cookieHeader.match(/(?:^|;\s*)CF_Authorization=([^;]+)/);
+        if (cookieMatch) accessEmail = decodeAccessEmail(cookieMatch[1]);
+      }
       return json({
         authenticated: sid !== null,
         siteKey: env.TURNSTILE_SITE_KEY,
         palette: PALETTE,
+        accessEmail,
       });
     }
 
@@ -285,6 +319,150 @@ export default {
           gemma: Date.now() - startGemma,
         },
       });
+    }
+
+    if (url.pathname === "/api/draw" && req.method === "POST") {
+      const sid = await verifySessionFromRequest(req, env.SESSION_HMAC_SECRET);
+      if (!sid) return json({ error: "unauthorized" }, { status: 401 });
+
+      const body = (await req.json().catch(() => ({}))) as { prompt?: string };
+      const prompt = body.prompt?.trim();
+      if (!prompt) return json({ error: "missing prompt" }, { status: 400 });
+
+      try {
+
+      // Step 1: LLM generates pixel art coordinates
+      const llmResult = await env.AI.run("@cf/google/gemma-4-26b-a4b-it" as any, {
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a pixel artist. Output ONLY raw JSON — no markdown, no explanation.\n" +
+              "Format: {\"pixels\":[{\"x\":N,\"y\":N,\"color\":N},...]}",
+          },
+          {
+            role: "user",
+            content:
+              `Draw "${prompt}" as pixel art, in a random place of a 256x256 canvas. ` +
+              "Use at most 25x25 pixels. Skip color 0 (white = background). " +
+              "Palette: 0=white, 1=light gray, 2=gray, 3=black, 4=pink, 5=red, " +
+              "6=orange, 7=brown, 8=yellow, 9=light green, 10=green, 11=cyan, " +
+              "12=blue, 13=dark blue, 14=magenta, 15=purple. " +
+              "x and y must be integers 0–63. color must be integer 0–15.",
+          },
+        ],
+        max_tokens: 4096,
+      } as any);
+
+      // Extract text from AI response
+      const rawText = (() => {
+        const v = llmResult as any;
+        if (typeof v === "string") return v;
+        if (v?.response) return v.response;
+        if (v?.choices?.[0]?.message?.content) return String(v.choices[0].message.content);
+        return JSON.stringify(v);
+      })();
+
+      // Extract pixel objects with a regex — tolerates truncated JSON, markdown fences, extra text.
+      type Pixel = { x: number; y: number; color: number };
+      const pixelRegex = /"x"\s*:\s*(\d+)\s*,\s*"y"\s*:\s*(\d+)\s*,\s*"color"\s*:\s*(\d+)/g;
+      const pixels: Pixel[] = [];
+      let m;
+      while ((m = pixelRegex.exec(rawText)) !== null) {
+        const x = parseInt(m[1], 10);
+        const y = parseInt(m[2], 10);
+        const color = parseInt(m[3], 10);
+        if (x >= 0 && x < 64 && y >= 0 && y < 64 && color >= 0 && color <= 15) {
+          pixels.push({ x, y, color });
+        }
+      }
+      console.log(`[draw] LLM raw (first 800 chars):`, rawText.slice(0, 800));
+      console.log(`[draw] extracted ${pixels.length} pixels:`, JSON.stringify(pixels));
+
+      if (pixels.length === 0) {
+        return json({ error: "AI generated no valid pixels", raw: rawText.slice(0, 500) }, { status: 500 });
+      }
+
+      // Step 2: Browser draws the pixels via the public /api/pixel endpoint
+      const sessionValue = await createSessionValue(env.SESSION_HMAC_SECRET);
+      const boardOrigin = `${url.protocol}//${url.host}`;
+      const browser = await puppeteer.launch(env.BROWSER as any);
+      const browserLogs: string[] = [];
+      let drawn = 0;
+      try {
+        const page = await browser.newPage();
+
+        // Capture browser console for debugging
+        page.on("console", (msg) => {
+          const entry = `[browser:${msg.type()}] ${msg.text()}`;
+          console.log(entry);
+          browserLogs.push(entry);
+        });
+
+        await page.setCookie({
+          name: "pb_session",
+          value: sessionValue,
+          domain: url.hostname,
+          path: "/",
+          httpOnly: true,
+          secure: url.protocol === "https:",
+          sameSite: "Strict",
+        });
+
+        console.log(`[draw] navigating to ${boardOrigin}`);
+        await page.goto(boardOrigin, { waitUntil: "load" });
+
+        const result = await page.evaluate(
+          async (pixelList: Pixel[], origin: string) => {
+            const log: string[] = [];
+            let ok = 0, fail = 0;
+            for (const { x, y, color } of pixelList) {
+              try {
+                const res = await (fetch as any)(`${origin}/api/pixel`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-pixel-id": `${x},${y}` },
+                  body: JSON.stringify({ x, y, color }),
+                  credentials: "include",
+                });
+                if (res.ok) {
+                  ok++;
+                } else {
+                  const body = await res.text().catch(() => "");
+                  log.push(`FAIL ${res.status} (${x},${y},c${color}): ${body.slice(0, 80)}`);
+                  fail++;
+                }
+              } catch (e) {
+                log.push(`ERR (${x},${y},c${color}): ${String(e)}`);
+                fail++;
+              }
+            }
+            console.log(`[browser] ok=${ok} fail=${fail}`);
+            log.forEach((l) => console.log(l));
+            return { ok, fail, log };
+          },
+          pixels,
+          boardOrigin
+        );
+        drawn = result.ok;
+        console.log(`[draw] browser done: ok=${result.ok} fail=${result.fail}`);
+        if (result.log.length) console.log(`[draw] browser errors:`, result.log.join(" | "));
+      } finally {
+        await browser.close();
+      }
+
+      return json({
+        ok: true,
+        prompt,
+        pixelsPlanned: pixels.length,
+        pixelsDrawn: drawn,
+        pixels,             // full pixel plan — compare with what you see on the board
+        browserLogs,
+      });
+
+      } catch (err) {
+        console.error("[draw] unhandled error:", String(err));
+        return json({ error: String(err) }, { status: 500 });
+      }
     }
 
     // -------- Static assets --------

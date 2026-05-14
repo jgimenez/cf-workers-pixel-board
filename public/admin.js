@@ -9,6 +9,7 @@ const BOARD_SIZE = 64;
 
 const els = {
   status: document.getElementById("status"),
+  userEmail: document.getElementById("user-email"),
   canvas: document.getElementById("board"),
   clean: document.getElementById("clean-btn"),
   recognize: document.getElementById("recognize-btn"),
@@ -136,6 +137,7 @@ async function bootstrap() {
   const data = await r.json();
   window.__SITE_KEY__ = data.siteKey;
   palette = data.palette;
+  if (data.accessEmail) els.userEmail.textContent = data.accessEmail;
 
   els.clean.addEventListener("click", async () => {
     if (!confirm("Clear the entire board?")) return;

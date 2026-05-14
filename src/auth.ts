@@ -55,6 +55,12 @@ async function sign(sessionId: string, secret: string): Promise<string> {
   return b64url(sig);
 }
 
+export async function createSessionValue(secret: string): Promise<string> {
+  const sessionId = crypto.randomUUID();
+  const sig = await sign(sessionId, secret);
+  return `${sessionId}.${sig}`;
+}
+
 export async function issueSessionCookie(secret: string): Promise<string> {
   const sessionId = crypto.randomUUID();
   const sig = await sign(sessionId, secret);

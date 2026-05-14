@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Board · Draw with AI</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <style>
+      .draw-wrap {
+        width: 100%;
+        max-width: 540px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+      .prompt-input {
+        flex: 1;
+        padding: 10px 14px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--fg);
+        font-size: 1rem;
+        outline: none;
+      }
+      .prompt-input:focus { border-color: var(--accent); }
+      .result-box {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        font-size: 0.9rem;
+        min-height: 60px;
+        color: var(--fg-dim);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .result-box.ok { color: #4ade80; }
+      .result-box.err { color: #f87171; }
+      .board-link {
+        font-size: 0.85rem;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .board-link:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Pixel Board <span style="font-size:0.75rem;color:var(--accent);font-weight:400;">draw</span></h1>
+      <div class="status" id="status">Connecting…</div>
+    </header>
+
+    <main style="align-items: flex-start; padding-top: 40px;">
+      <div class="draw-wrap">
+        <p style="margin:0;color:var(--fg-dim);font-size:0.9rem;">
+          Describe what you want drawn. An AI agent will open the board and paint it pixel by pixel.
+          <a href="/" class="board-link">Watch it live →</a>
+        </p>
+        <div class="input-row">
+          <input
+            id="prompt"
+            class="prompt-input"
+            type="text"
+            placeholder="a red heart, a simple house, a smiley face…"
+            maxlength="120"
+            autocomplete="off"
+          />
+          <button id="draw-btn" class="btn" disabled>Draw</button>
+        </div>
+        <div id="result" class="result-box">Authenticate first…</div>
+      </div>
+    </main>
+
+    <div id="turnstile-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <h2>Verification</h2>
+        <p>Complete the challenge to use AI drawing.</p>
+        <div id="turnstile-widget"></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="/draw.js" type="module"></script>
+  </body>
+</html>
