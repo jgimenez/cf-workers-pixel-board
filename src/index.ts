@@ -19,8 +19,39 @@ export interface Env {
   TURNSTILE_SECRET: string;
   TURNSTILE_SITE_KEY: string;
   SESSION_HMAC_SECRET: string;
+  CF_TEAM_DOMAIN: string;
+  CF_ACCESS_AUD: string;
   // Optional fallback if not using WAF Rate Limiting
   // PAINT_LIMITER?: { limit: (opts: { key: string }) => Promise<{ success: boolean }> };
+}
+
+// Verify a Cloudflare Access JWT (RS256). Returns false on any failure.
+// If teamDomain or aud are empty, skips validation (local dev).
+async function verifyAccessJwt(jwt: string, teamDomain: string, aud: string): Promise<boolean> {
+  if (!teamDomain || !aud) return true; // local dev bypass
+  const parts = jwt.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/");
+    const header = JSON.parse(atob(b64(parts[0])));
+    const payload = JSON.parse(atob(b64(parts[1])));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return false;
+    const audOk = Array.isArray(payload.aud) ? payload.aud.includes(aud) : payload.aud === aud;
+    if (!audOk) return false;
+    const jwksRes = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
+    if (!jwksRes.ok) return false;
+    const { keys } = await jwksRes.json() as { keys: JsonWebKey[] };
+    const jwk = (keys as any[]).find((k) => k.kid === header.kid);
+    if (!jwk) return false;
+    const key = await crypto.subtle.importKey(
+      "jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]
+    );
+    const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const sig = Uint8Array.from(atob(b64(parts[2])), (c) => c.charCodeAt(0));
+    return crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, sig, data);
+  } catch {
+    return false;
+  }
 }
 
 const PALETTE_RGBA = PALETTE.map((h) => hexToRgba(h));
@@ -46,6 +77,18 @@ function getHub(env: Env): DurableObjectStub<BoardHub> {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
+
+    // -------- Admin page --------
+    if (url.pathname === "/admin.html") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    if (url.pathname === "/admin" && req.method === "GET") {
+      const jwt = req.headers.get("CF-Access-Jwt-Assertion") ?? "";
+      const ok = await verifyAccessJwt(jwt, env.CF_TEAM_DOMAIN, env.CF_ACCESS_AUD);
+      if (!ok) return new Response("Unauthorized", { status: 401 });
+      return env.ASSETS.fetch(new Request(new URL("/admin.html", req.url).toString()));
+    }
 
     // -------- API routes --------
     if (url.pathname === "/api/whoami" && req.method === "GET") {
