@@ -48,6 +48,7 @@ new_sqlite_classes = ["Tile", "BoardHub"]
 TURNSTILE_SITE_KEY = "0x4AAAAAADPIuBLHGmnBG7mS"  # public, OK to commit
 CF_TEAM_DOMAIN = "pixelboard-cf.cloudflarepeerpoint.workers.dev"  # e.g. "yourteam.cloudflareaccess.com" — leave empty to skip Access check (local dev)
 CF_ACCESS_AUD = "5c198ca240562f531d8765da7c81ff698effdd422ae229be376c7cff9147adde"   # Application Audience tag from the Access application
+CF_AI_GATEWAY_ID = "peerpoint"  # AI Gateway ID from Cloudflare dashboard → AI Gateway → your gateway name
 
 # Secrets (set via `wrangler secret put`)
 # - TURNSTILE_SECRET

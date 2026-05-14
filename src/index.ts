@@ -23,6 +23,7 @@ export interface Env {
   SESSION_HMAC_SECRET: string;
   CF_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
+  CF_AI_GATEWAY_ID: string;
   BROWSER: Fetcher;
   // Optional fallback if not using WAF Rate Limiting
   // PAINT_LIMITER?: { limit: (opts: { key: string }) => Promise<{ success: boolean }> };
@@ -256,15 +257,16 @@ export default {
       const startKimi = Date.now();
       const startGemma = Date.now();
 
+      const aiGateway = env.CF_AI_GATEWAY_ID ? { gateway: { id: env.CF_AI_GATEWAY_ID } } : undefined;
       const [kimiRes, gemmaRes] = await Promise.allSettled([
         env.AI.run("@cf/moonshotai/kimi-k2.6" as any, {
           messages: buildMessages(),
           max_tokens: 10000,
-        } as any),
+        } as any, aiGateway as any),
         env.AI.run("@cf/google/gemma-4-26b-a4b-it" as any, {
           messages: buildMessages(),
           max_tokens: 1024,
-        } as any),
+        } as any, aiGateway as any),
       ]);
 
       const stripThinking = (s: string) =>
@@ -332,7 +334,8 @@ export default {
       try {
 
       // Step 1: LLM generates pixel art coordinates
-      const llmResult = await env.AI.run("@cf/google/gemma-4-26b-a4b-it" as any, {
+      const drawGateway = env.CF_AI_GATEWAY_ID ? { gateway: { id: env.CF_AI_GATEWAY_ID } } : undefined;
+      const llmResult = await env.AI.run("@cf/moonshotai/kimi-k2.6" as any, {
         messages: [
           {
             role: "system",
@@ -351,8 +354,8 @@ export default {
               "x and y must be integers 0–63. color must be integer 0–15.",
           },
         ],
-        max_tokens: 4096,
-      } as any);
+        max_tokens: 20000,
+      } as any, drawGateway as any);
 
       // Extract text from AI response
       const rawText = (() => {
