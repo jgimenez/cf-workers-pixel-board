@@ -1,0 +1,43 @@
+name = "pixelboard-cf"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Public assets (frontend)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# AI binding
+[ai]
+binding = "AI"
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "TILE"
+class_name = "Tile"
+
+[[durable_objects.bindings]]
+name = "BOARD_HUB"
+class_name = "BoardHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Tile", "BoardHub"]
+
+# Optional: Workers Rate Limiting binding as fallback to WAF Rate Limiting
+# Uncomment if not using WAF Rate Limiting Rule
+# [[unsafe.bindings]]
+# name = "PAINT_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# simple = { limit = 1, period = 10 }
+
+# Vars (public)
+[vars]
+TURNSTILE_SITE_KEY = "0x4AAAAAADPIuBLHGmnBG7mS"  # public, OK to commit
+
+# Secrets (set via `wrangler secret put`)
+# - TURNSTILE_SECRET
+# - SESSION_HMAC_SECRET

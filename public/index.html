@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Board · Cloudflare</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Pixel Board</h1>
+      <div class="status" id="status">Connecting…</div>
+    </header>
+
+    <main>
+      <section class="board-wrap">
+        <canvas id="board" width="64" height="64" aria-label="Pixel board 64x64"></canvas>
+      </section>
+
+      <aside class="panel">
+        <div class="palette" id="palette" role="listbox" aria-label="Color palette"></div>
+
+        <button id="clean-btn" class="btn btn-danger">Clear board</button>
+        <button id="recognize-btn" class="btn">What does the AI see?</button>
+        <div class="ai-results" id="ai-results"></div>
+      </aside>
+    </main>
+
+    <div id="turnstile-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <h2>Verification</h2>
+        <p>Complete the challenge to start painting.</p>
+        <div id="turnstile-widget"></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
