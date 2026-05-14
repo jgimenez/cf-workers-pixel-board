@@ -3,13 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pixel Board · Admin</title>
+    <title>Pixel AI · Admin</title>
     <link rel="stylesheet" href="/style.css" />
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </head>
   <body>
     <header>
-      <h1>Pixel Board <span style="font-size:0.75rem;color:var(--accent);font-weight:400;">admin</span></h1>
+      <h1>Pixel AI <span style="font-size:0.75rem;color:var(--accent);font-weight:400;">admin</span></h1>
+      <nav class="nav-links">
+        <a href="/" class="nav-link">Board</a>
+        <a href="/draw" class="nav-link">Draw</a>
+      </nav>
       <div style="display:flex;align-items:center;gap:16px;">
         <span id="user-email" style="font-size:0.8rem;color:var(--fg-dim);"></span>
         <div class="status" id="status">Connecting…</div>

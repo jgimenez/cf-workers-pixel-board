@@ -1,4 +1,4 @@
-// Pixel Board frontend. Vanilla JS module, no build step.
+// Pixel AI frontend. Vanilla JS module, no build step.
 // Protocol: 1-byte type, then payload.
 //   0x00 INIT [4096 bytes]
 //   0x01 PIXEL [x, y, color]

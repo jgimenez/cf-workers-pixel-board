@@ -1,7 +1,6 @@
 // Draw page — text prompt → AI agent draws on the board via browser.
 
 const els = {
-  status: document.getElementById("status"),
   prompt: document.getElementById("prompt"),
   drawBtn: document.getElementById("draw-btn"),
   result: document.getElementById("result"),
@@ -9,11 +8,6 @@ const els = {
   turnstileWidget: document.getElementById("turnstile-widget"),
   toast: document.getElementById("toast"),
 };
-
-function setStatus(text, cls) {
-  els.status.textContent = text;
-  els.status.className = "status" + (cls ? " " + cls : "");
-}
 
 function setResult(text, cls) {
   els.result.textContent = text;
@@ -45,7 +39,6 @@ function showTurnstile() {
           els.modal.classList.add("hidden");
           els.drawBtn.disabled = false;
           setResult("Ready. Type a prompt and click Draw.");
-          setStatus("Authenticated", "connected");
         } else {
           showToast("Verification failed");
         }
@@ -116,7 +109,6 @@ async function bootstrap() {
   if (data.authenticated) {
     els.drawBtn.disabled = false;
     setResult("Ready. Type a prompt and click Draw.");
-    setStatus("Authenticated", "connected");
   } else {
     showTurnstile();
   }
