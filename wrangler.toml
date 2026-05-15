@@ -17,6 +17,15 @@ binding = "AI"
 [browser]
 binding = "BROWSER"
 
+# Dynamic Workers — Worker Loader API for running AI-generated code
+[[worker_loaders]]
+binding = "LOADER"
+
+# Self-referencing service binding so Dynamic Workers can call our own /api/pixel
+[[services]]
+binding = "SELF_SERVICE"
+service = "pixelboard-cf"
+
 # Observability
 [observability.logs]
 enabled = true

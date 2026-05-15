@@ -48,6 +48,27 @@
         text-decoration: none;
       }
       .board-link:hover { text-decoration: underline; }
+      .mode-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+      }
+      .tab-btn {
+        background: none;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        color: var(--fg-dim);
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 5px 12px;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .tab-btn:hover { color: var(--fg); }
+      .tab-btn.active {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
     </style>
   </head>
   <body>
@@ -61,22 +82,58 @@
 
     <main style="align-items: flex-start; padding-top: 40px;">
       <div class="draw-wrap">
-        <p style="margin:0;color:var(--fg-dim);font-size:0.9rem;">
-          Describe what you want drawn. An AI agent will open the board and paint it pixel by pixel.
-          <a href="/" class="board-link">Watch it live →</a>
-        </p>
-        <div class="input-row">
-          <input
-            id="prompt"
-            class="prompt-input"
-            type="text"
-            placeholder="a red heart, a simple house, a smiley face…"
-            maxlength="120"
-            autocomplete="off"
-          />
-          <button id="draw-btn" class="btn" disabled>Draw</button>
+        <div class="mode-tabs">
+          <button id="tab-draw" class="tab-btn active">Draw (text)</button>
+          <button id="tab-image" class="tab-btn">Draw Image</button>
         </div>
-        <div id="result" class="result-box">Authenticate first…</div>
+
+        <!-- Existing text-to-pixels section -->
+        <div id="section-draw">
+          <p style="margin:0;color:var(--fg-dim);font-size:0.9rem;">
+            Describe what you want drawn. An AI agent will open the board and paint it pixel by pixel.
+            <a href="/" class="board-link">Watch it live →</a>
+          </p>
+          <div class="input-row">
+            <input
+              id="prompt"
+              class="prompt-input"
+              type="text"
+              placeholder="a red heart, a simple house, a smiley face…"
+              maxlength="120"
+              autocomplete="off"
+            />
+            <button id="draw-btn" class="btn" disabled>Draw</button>
+          </div>
+          <div id="result" class="result-box">Authenticate first…</div>
+        </div>
+
+        <!-- New Draw Image section -->
+        <div id="section-image" style="display:none;">
+          <p style="margin:0;color:var(--fg-dim);font-size:0.9rem;">
+            Describe an image. Flux will generate it, Gemma will write the code to paint it on the board.
+            <a href="/" class="board-link">Watch it live →</a>
+          </p>
+          <div class="input-row">
+            <input
+              id="image-prompt"
+              class="prompt-input"
+              type="text"
+              placeholder="a sunset over the mountains, a cute cat, a city skyline…"
+              maxlength="200"
+              autocomplete="off"
+            />
+            <button id="image-btn" class="btn" disabled>Draw Image</button>
+          </div>
+          <div id="image-result" class="result-box">Authenticate first…</div>
+          <div id="flux-preview-wrap" style="display:none; margin-top:12px;">
+            <p style="margin:0 0 6px;color:var(--fg-dim);font-size:0.8rem;">Flux generated image (256×256):</p>
+            <img id="flux-preview" style="image-rendering:pixelated;border:1px solid var(--border);border-radius:var(--radius);max-width:200px;display:block;" />
+          </div>
+          <div id="gemma-code-wrap" style="display:none; margin-top:12px;">
+            <p style="margin:0 0 6px;color:var(--fg-dim);font-size:0.8rem;">Gemma Dynamic Worker code:</p>
+            <pre id="gemma-code" style="margin:0;padding:10px 12px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);font-size:0.72rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;color:var(--fg-dim);"></pre>
+          </div>
+        </div>
       </div>
     </main>
 
